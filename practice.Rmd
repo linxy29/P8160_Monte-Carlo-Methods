@@ -1,0 +1,55 @@
+---
+title: "practice_l3"
+author: "Xinyi Lin"
+date: "2/13/2019"
+output: html_document
+---
+
+```{r}
+dloglikgamma = function(x, a){
+  return(-log(mean(x)) + log(a) - digamma(a) + mean(log(x)))
+}
+```
+
+## bisection algorithm
+
+```{r}
+x = rgamma(20, shape = 5, scale = 2)
+dloglikgamma(x, 0.1)
+dloglikgamma(x, 100)
+a = 0.1
+b = 100
+tol = 1e-10
+i = 0 # iteration index
+cur = (a + b)/2
+res = c(i, cur, dloglikegamma(x, cur))
+
+while (abs(dloglikgamma(x, cur)) > tol) {
+  i = i+1
+  if (dloglikgamma(x, a) * dloglikgamma(x, cur) > 0)
+    a <- cur
+  else
+    b <- cur
+  cur <- (a + b) / 2
+  res <- rbind(res, c(i, cur, dloglikgamma(x, cur)))
+}
+alphahat = res[nrow(res), 2]
+betahat = mean(x) / alphahat
+res
+```
+
+# newton's method
+
+```{r}
+cur <- start <- 1
+resnewton <- c(i, cur, dloglikgamma(x, cur))
+while (abs(dloglikgamma(x, cur)) > tol){
+  i <- i + 1
+  cur <- cur - dloglikgamma(x, cur) / d2loglikgamma(x, cur)
+  resnewton <- rbind(resnewton, c(i, cur, dloglikgamma(x, cur))
+}
+alphahat <- resnewton[nrow(resnewton), 2]
+betahat <- mean(x)/alphahat
+resnewton
+```
+

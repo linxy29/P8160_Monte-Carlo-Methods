@@ -1,0 +1,79 @@
+---
+title: "bootstrap"
+author: "Xinyi Lin"
+date: "3/6/2019"
+output: html_document
+---
+
+## bootstrap
+
+```{r}
+orgin_a = c(94, 197, 16, 38, 99, 141, 23)
+origin_b = c(52, 104, 146, 10, 51, 30, 40, 27, 46)
+```
+
+```{r}
+bootstrap = function(data, n){
+  i = 1
+  len = length(data)
+  sample = sample(data, len, replace = Ture)
+}
+```
+
+## EM algorithm
+
+```{r}
+# E-step evaluating conditional means E(Z_i | X_i , pars)
+# pars: parameters list
+delta <- function(Y, pars){
+  delta1 = pars$p/(pars$p + (1- pars$p)*exp(-pars$lambda))
+  len = length(Y)
+  delta_vec = vector("numeric", len)
+  for (i in 1:len){
+    if (Y[i] == 0) 
+      delta_vec[i] = delta1
+    else
+      delta_vec[i] = 0
+  }
+  return(delta_vec)
+}
+```
+
+```{r}
+# M-step - updating the parameters
+mles <- function(Z, Y) {
+  n <- length(Y)
+  phat <- sum(Z) / n
+  lambdahat = sum((1 - Z) * Y)/sum(Z)
+  return(list(p=phat, lambda = lambdahat))
+}
+```
+
+```{r}
+EMmix <- function(Y, start, nreps=10) {
+  i <- 0
+  Z <- delta(Y, start)
+  newpars <- start
+  res <- c(0, t(as.matrix(newpars)))
+  while(i < nreps) {
+  # This should actually check for convergence
+    i <- i + 1
+    newpars <- mles(Z, Y)
+    Z <- delta(Y, newpars)
+    res <- rbind(res, c(i, t(as.matrix(newpars))))
+  }
+  return(res)
+}
+```
+
+```{r}
+# Generate some data:
+Y <- c(rep(0,3062),rep(1,587),rep(2,284),rep(3,103),rep(4,33),rep(5,4),rep(6,2))
+p <- 0.7
+n <- length(Y)
+Z <- rbinom(n, size=1, prob=p)  # start number, in iterations, it becomes numbers between 0-1
+```
+
+```{r}
+EMmix(Y, start=list(p=0.5, lambda = 2))
+```

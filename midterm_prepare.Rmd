@@ -1,0 +1,289 @@
+---
+title: "midterm-prepare"
+author: "Xinyi Lin"
+date: "3/11/2019"
+output: html_document
+---
+
+## LCG
+
+```{r}
+lcg <- function(a, c, m, seed, nnum = 100) {
+        ans <- rep(0, nnum)  # Initialize the array
+        ans[1] <- (a * seed + c) %% m
+        for(i in 2:nnum)
+                ans[i] <- (a * ans[i - 1] + c) %% m
+        return(ans)
+}
+rannums <- lcg(a = 9, c = 5, m = 16, seed = 8, nnum = 20)
+rannums
+```
+
+## Inverse cdf Method for Continuous Densities
+
+```{r}
+set.seed(1000)
+U <- runif(1000)
+X<- -log(1-U)
+
+# mixed function
+U <- runif(n)
+X <- rep(0, n) # to initialize
+for (i in 1:n) {
+  if(U[i] < 0.25)
+    X[i] <- 8 * U[i]
+  else
+    X[i] <- 4 * sqrt(U[i])
+}
+```
+
+## Acceptance/rejection methods
+
+```{r}
+accrej <- function(fdens, gdens, M, x){
+  ncand <- length(x)
+  # Generate the uniforms to decide acceptance/rejection
+  u <- runif(ncand)
+  accepted <- NULL           # Initialize the vector of accepted
+  for(i in 1:ncand) {
+    if (u[i] <= fdens(x[i])/(M * gdens(x[i])))
+      accepted <- c(accepted, x[i])
+}
+  return(accepted)
+}
+```
+
+```{r}
+# Witch’s hat distribution from a uniform
+unif02dens = function(x)              # pdf of U(0,2)  ***
+  return(0.5 * (x >= 0 & x <= 2))
+witchshatdens = function(x)
+  return(x * (x >= 0 & x <=1) + (2 - x) * (x > 1 & x <= 2))
+set.seed(123)
+x = runif(1000) * 2
+y = accrej(witchshatdens, unif02dens, 2, x)
+#y
+hist(x)
+hist(y)
+
+x_t = seq(0, 2, 0.01)
+y_t = x_t * (x_t >= 0 & x_t <=1) + (2 - x_t) * (x_t > 1 & x_t <= 2)
+hist(y, freq = FALSE)
+lines(y = y_t, x = x_t, col = "red")
+```
+
+
+## Bisection algorithm
+
+```{r}
+dloglikgamma = function(x, a) {
+  return(-log(mean(x)) + log(a) - digamma(a) + mean(log(x)))
+}
+```
+
+```{r}
+bisection = function(X, func, a, b){
+  tol = 1e-10
+  i = 0 # iteration index
+  cur=(a+b)/2
+  #res = rbind(res, c(i, cur, func(x, cur)))
+  res = c(i, cur, func(x, cur))
+  while (abs(func(x, cur)) > tol) {
+    i <- i + 1
+    if (func(x, a) * func(x, cur) > 0)
+      a <- cur
+    else
+      b <- cur
+    cur <- (a + b) / 2
+    res <- rbind(res, c(i, cur, func(x, cur)))
+    #res = data.frame(res)
+    #names(res) = c("i", "cur", "dloglikgamma")
+  }
+  return(res)
+}
+```
+
+```{r}
+set.seed(123)
+x = rgamma(20, shape=5, scale = 2) # Generate some gammas with
+bisection(x, dloglikgamma, 0.1, 100)
+res = bisection(x, dloglikgamma, 0.1, 100)
+alphahat = res[nrow(res), 2]
+betahat = mean(x) / alphahat
+```
+
+## Newton method(one dimensional)
+
+```{r}
+d2loglikgamma <- function(x, a) {
+  return(1/a - trigamma(a))
+}
+i=0
+cur <- start <- 1
+resnewton <- c(i, cur, dloglikgamma(x, cur))
+while (abs(dloglikgamma(x, cur)) > tol){
+  i <- i + 1
+  cur <- cur - dloglikgamma(x, cur) / d2loglikgamma(x, cur)
+  resnewton <- rbind(resnewton, c(i, cur, dloglikgamma(x, cur)))
+}
+alphahat <- resnewton[nrow(resnewton), 2]
+betahat <- mean(x)/alphahat
+resnewton
+```
+
+## Golden search 
+
+```{r}
+fx = function(x){
+  return(-sin(x)/exp(1))
+}
+```
+
+```{r}
+golden_min = function(func, a, b){
+  w = 0.618
+  theta0 = a+(b-a)*(1-w)
+  theta1 = theta0 + (b-a)*(1-w)*w
+  tol = 1e-4
+  
+  #rlist = c("a", "b", "theta0", "theta1")
+  rlist = c(a, b, theta0, theta1)
+  while(abs(b-a)>tol){
+    if(func(theta1) < func(theta0)){
+      a=theta0;
+      theta0 = theta1
+      theta1 = theta0 + (b-a)*(1-w)*w
+      }
+    else{
+      b=theta1;
+      theta0 = a+(b-a)*(1-w)
+      theta1 = theta0 + (b-a)*(1-w)*w
+      }  
+    rlist = rbind(rlist, c(a, b, theta0, theta1))
+  } 
+  #tail(rlist)
+  return(tail(rlist))
+}
+
+golden_min(fx, 0, 1.5)
+```
+
+## Newton Raphson
+
+```{r }
+logisticstuff <- function(dat, betavec) {
+  u <- betavec[1] + betavec[2] * dat$x
+  expu <- exp(u)
+  loglik <- sum(dat$y * u - log(1 + expu))
+# Log-likelihood at betavec
+  p <- expu / (1 + expu)
+# P(Y_i=1|x_i)
+  grad <- c(sum(dat$y - p), sum(dat$x * (dat$y - p)))
+# gradient at betavec
+  Hess <- -matrix(c(sum(p * (1 - p)),
+                     rep(sum(dat$x * p * (1-p)),2),
+                    sum(dat$x^2 * p * (1 - p))), ncol=2)
+# Hessian at betavec
+  return(list(loglik = loglik, grad = grad, Hess = Hess))
+}
+```
+
+```{r}
+NewtonRaphson <- function(dat, func, start, tol=1e-10,
+                               maxiter = 200) {
+  i <- 0
+  cur <- start
+  stuff <- func(dat, cur)
+  res <- c(0, stuff$loglik, cur)
+   prevloglik <- -Inf      # To make sure it iterates
+  while(i < maxiter && abs(stuff$loglik - prevloglik) > tol)
+ {
+    i <- i + 1
+    prevloglik <- stuff$loglik
+    prev <- cur
+    lambda = 1
+    cur <- prev - lambda*solve(stuff$Hess) %*% stuff$grad
+    stuff <- func(dat, cur)        # log-lik, gradient, Hessian
+    #while(prevloglik >= stuff$loglik){
+      #cur <- prev - lambda*solve(stuff$Hess) %*% stuff$grad
+      #stuff <- func(dat, cur)        # log-lik, gradient, Hessian
+      #lambda = lambda/2
+    #}
+    res <- rbind(res, c(i, stuff$loglik, cur))
+    # Add current values to results matrix
+}
+  return(res)
+}
+```
+
+```{r}
+# generate some data
+set.seed(123)
+n <- 40
+truebeta <- c(1, -2)
+x <- rnorm(n)
+expu <- exp(truebeta[1] + truebeta[2] * x)
+y <- runif(n) < expu / (1 + expu)
+   
+ans1 <- NewtonRaphson(list(x=x,y=y),logisticstuff,c(1,-2))
+ans1
+```
+
+
+## EM algorithm
+
+```{r}
+# E-step evaluating conditional means E(Z_i | X_i , pars)
+# pars: parameters list
+delta <- function(X, pars){
+  phi1 <- dnorm(X, mean=pars$mu1, sd=pars$sigma)
+  phi2 <- dnorm(X, mean=pars$mu2, sd=pars$sigma)
+  return(pars$p * phi2 / ((1 - pars$p) * phi1 + pars$p * phi2))
+}
+```
+
+```{r}
+# M-step - updating the parameters
+mles <- function(Z, X) {
+  n <- length(X)
+  phat <- sum(Z) / n
+  mu1hat <- sum((1 - Z) * X) / (n - sum(Z))
+  mu2hat <- sum(Z * X) / sum(Z)
+  sigmahat <- sqrt(sum((1 - Z) * (X - mu1hat)^2 +
+  Z * (X - mu2hat)^2) / n)
+  return(list(p=phat, mu1=mu1hat, mu2=mu2hat, sigma=sigmahat))
+}
+```
+
+```{r}
+EMmix <- function(X, start, nreps=10) {
+  i <- 0
+  Z <- delta(X, start)
+  newpars <- start
+  res <- c(0, t(as.matrix(newpars)))
+  while(i < nreps) {
+  # This should actually check for convergence
+    i <- i + 1
+    newpars <- mles(Z, X)
+    Z <- delta(X, newpars)
+    res <- rbind(res, c(i, t(as.matrix(newpars))))
+  }
+  return(res)
+}
+```
+
+```{r}
+#Generate some data
+p <- 0.7
+mu1 <- 2
+mu2 <- 6
+sigma <- 1
+n <- 100
+Z <- rbinom(n, size=1, prob=p)  # start number, in iterations, it becomes numbers between 0-1
+X <- rnorm(n) + mu1 + (mu2 - mu1) * Z
+```
+
+```{r}
+EMmix(X, start=list(p=0.5, mu1=0, mu2=10, sigma=1.5))
+```
+
