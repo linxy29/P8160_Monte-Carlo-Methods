@@ -229,6 +229,19 @@ ans1 <- NewtonRaphson(list(x=x,y=y),logisticstuff,c(1,-2))
 ans1
 ```
 
+## Gradient test
+
+```
+grad_test = function(grad, x, epis = 0.0001){
+  x1 = x
+  grad_test = vector("numeric", length = )
+  for (i in 1:length(x)) {
+    
+  }
+}
+```
+
+
 
 ## EM algorithm
 
@@ -285,5 +298,25 @@ X <- rnorm(n) + mu1 + (mu2 - mu1) * Z
 
 ```{r}
 EMmix(X, start=list(p=0.5, mu1=0, mu2=10, sigma=1.5))
+```
+
+## Bootstrap
+
+```{r}
+twosampboot <- function(x, y, nboot=200) {
+  meandiffvec <- NULL
+  for(b in 1:nboot)
+    meandiffvec <- c(meandiffvec,
+        mean(sample(x,replace=T)) - mean(sample(y,replace=T)))
+  return(list(bootse=sqrt(var(meandiffvec)),
+         meandiffvec=meandiffvec))
+}
+```
+
+```{r}
+x <- c(94, 197, 16, 38, 99, 141, 23)
+y <- c(52, 104, 146, 10, 51, 30, 40, 27, 46)
+res <- twosampboot(x, y)
+res$bootse
 ```
 

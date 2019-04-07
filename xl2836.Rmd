@@ -1,0 +1,206 @@
+---
+title: "Midterm Exam 2019"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+date: "3/13/2019"
+---
+
+\paragraph{Your Name:}  Xinyi Lin
+
+\paragraph{Your UNI:}   xl2836
+
+
+
+\vskip 30pt
+Disease D is a chronic neurological condition that leads to fast deterioration of motor and cognitive functions and eventually leads to death. Based on a theoretical model, the survival time of a patient suffered from disease D very much depends on his or her disease onset age. To be specific, let $Y$ as the survival time of a patient, and $X$ be the disease onset age, the conditional distribution for $Y$ given $X = x$ is exponential with failure rate $0.01x$. 
+$$f(Y=t\mid X=x) =0.01x\exp\{-0.01xt\}.$$
+Since D is a chronic condition, its actual onset times are often unobserved. Suppose the disease onset ages in a population also follows an exponential with failure rate $\theta$, where $\theta>0$ is an unknown parameter.  Suppose $\{Y_i, \, i = 1,...,n\}$ are observed survival times of $n$ patients with disease D in a population. The public health researchers are interested in estimating the parameter $\theta$ in the population so that they could design disease prevention policies on target ages. 
+
+### 1. Write out the marginal distribution of $Y$, and the observed likelihood function of $\{Y_i, \, i = 1,...,n\}$. 
+
+\textbf{Answer:}
+
+[This is the answer of problem 1.](./images/1.jpeg)
+
+\vskip 100pt
+
+### 2. Design a univariate optimization algorithm (e.g. Golden search or Newton's method) to find the MLE of the observed likelihood in (1), and specify each step of your algorithm. Implement the algorithm into an R function.
+
+
+\textbf{Answer:}
+\vskip 100pt
+
+
+
+\textbf{R codes:}
+
+```{r}
+loglike = function(theta){
+  res = sum(log(0.01*theta)-2*log(0.01*Y+theta))
+  return(res)
+}
+```
+
+```{r}
+golden_max = function(func, a, b){
+  w = 0.618
+  theta0 = a+(b-a)*(1-w)
+  theta1 = theta0 + (b-a)*(1-w)*w
+  tol = 1e-4
+  i = 0
+  
+  #rlist = c("a", "b", "theta0", "theta1")
+  rlist = c(i, a, b, theta0, theta1)
+  while(abs(b-a)>tol){
+    i = i+1
+    if(func(theta1) > func(theta0)){
+      a=theta0;
+      theta0 = theta1
+      theta1 = theta0 + (b-a)*(1-w)*w
+      }
+    else{
+      b=theta1;
+      theta0 = a+(b-a)*(1-w)
+      theta1 = theta0 + (b-a)*(1-w)*w
+      }  
+    rlist = rbind(rlist, c(i, a, b, theta0, theta1))
+  } 
+  #tail(rlist)
+  return(tail(rlist))
+}
+
+#golden_max(fx, 0, 1.5)
+```
+
+### 3. Write out the joint distribution of $(Y, X)$, and design an EM algorithm to find the MLE of $\theta$. Clealy write out the E-steps and M-steps in each iteration, and implement the algorithm into an R function.
+
+
+
+\textbf{Answer:}
+\vskip 100pt
+
+
+
+
+\textbf{R codes:}
+
+```{r}
+# E-step evaluating conditional means E(Z_i | X_i , pars)
+# pars: parameters list
+delta <- function(X, theta){
+  return(1/(0.01*x))
+}
+```
+
+```{r}
+# M-step - updating the parameters
+mles <- function(Z, X) {
+  n <- length(X)
+  thetahat <- n/sum(Z)
+  return(thetahat)
+}
+```
+
+```{r}
+EMmix <- function(X, start, nreps=10) {
+  i <- 0
+  Z <- delta(X, start)
+  newpars <- start
+  res <- c(0, t(as.matrix(newpars)))
+  while(i < nreps) {
+  # This should actually check for convergence
+    i <- i + 1
+    newpars <- mles(Z, X)
+    Z <- delta(X, newpars)
+    res <- rbind(res, c(i, t(as.matrix(newpars))))
+  }
+  return(res)
+}
+```
+
+### 4.Simulate data sets with true $\theta=0.025$, and apply the optimization functions you deleveped in (2) and (3) to estimate $\theta$, which algoirhtm is more efficient (comparing the numbeter of iterations and computing times)? 
+
+
+
+
+
+\textbf{Answer:}
+\vskip 100pt
+
+\textbf{R codes:}
+
+```{r}
+simy = function(theta){
+  n = 20
+  true_theta = theta
+  X = rexp(n, true_theta)
+  Y = vector(mode = "numeric", n)
+  for (i in 1:n) {
+    Y[i] = rexp(1, X[i])
+  }
+  return(list(X=X, Y=Y))
+}
+```
+
+```{r}
+set.seed(123)
+res = simy(0.025)
+res$X
+res$Y
+```
+
+```{r}
+# method 1
+Y = res$Y
+golden_max(loglike, 0, 1)
+```
+
+### 5.Show that $\theta$ is $0.01 \times$the median of $Y$, and hence  (the sample median of $Y_i) \times 0.01$ is a consistent estimation of $\theta$ as well. 
+
+\textbf{Answer:}
+\vskip 100pt
+
+### 6. Now that you have two estimates of $\theta$, the MLE estimate and  the one using the sample median of $Y_i$'s, Carry out a simulation study to compare the estimation efficiency of the two estimates. Based on your simulation results, which estimate should be recommended?
+
+
+
+\textbf{Answer:}
+
+Step 1: simulation Y;
+Step 2: calculate $\theta$ given by MLE and median $\theta$;
+Step 3: repeat step1-2 n times and calculate corresponding MSE;
+Step 4: compare MSEs.
+
+\textbf{R codes:}
+
+```{r, eval=FALSE}
+# a function to calculate MLE of theta
+mle_theta = function(Y){
+  return()
+}
+```
+
+```{r}
+compare <- function(N=10000) {
+  SSEmle <- SSEmedian <- 0
+  for(i in 1:N){
+    Y = simy(0.025)
+    SSEmle <- SSEmle + mle_theta(Y)^2
+    SSEmedian <- SSEmedian + median(Y)^2
+  }
+  return(list(Y=Y, MSEmean = SSEmle / N,
+   MSEmedian = SSEmedian / N))
+}
+```
+
+```{r, eval=FALSE}
+res <- NULL
+for(i in 1:length(pvec))
+  res <- rbind(res, as.numeric(compare(N=5000)))
+res <- data.frame(res)
+names(res) <- c("Y", "MSEmean", "MSEmedian")
+print(res)
+```
+
