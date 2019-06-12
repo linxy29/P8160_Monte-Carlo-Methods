@@ -2,7 +2,9 @@
 title: "group project 1"
 author: "Xinyi Lin"
 date: "2/8/2019"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 Design a simulation under this setting to evaluate and compare the effectiveness of these four multiple comparison adjustments regarding (1) controlling family-wise type I error and (2) preserving the study power to detect true effects. Evaluate the impact of (1) the number of outcomes, (2) between-outcome correlations and (3) effect size on the performance of those methods
