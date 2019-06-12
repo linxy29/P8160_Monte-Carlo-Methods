@@ -1,0 +1,243 @@
+---
+title: "Homework 3 on Bootstrap and resampling methods"
+author: "Leave your name and uni here"
+date: "Due: 04/15/2019, Wednesday, by 1pm"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+**Please implement paralle computating into all  your bootstrap algorithm and R codes.** 
+
+\paragraph{Problem 1}
+
+Example 1:  a randomized trial on eye treatment (See Lecture 7.pdf, page 2)
+
+For the two sample trial, the null hypothesis is: $$H_0: \mu_{red} = \mu_{blue}$$ 
+Corresponding t statistics: $$t(X_1, X_2) = \frac{\bar{X_2}-\bar{X_1}}{\sqrt{\frac{S_1^2}{n_1}+\frac{S_2^2}{n_2}}}$$.
+
+```{r}
+# data
+blue <- c(4,69,87,35,39,79,31,79,65,95,68,62,70,80,84,79,66,75,59,77,36,86,39,85,74,72,69,85,85,72)
+red <-c(62,80,82,83,0,81,28,69,48,90,63,77,0,55,83,85,54,72,58,68,88,83,78,30,58,45,78,64,87,65)
+acui = data.frame(str=c(rep(0,20),rep(1,10)),red,blue)
+```
+
+```{r}
+teststat1 <- function(x, y) {
+  numerator = mean(y) - mean(x)
+  denominator = sqrt(var(x)/length(x) + var(y)/length(y))
+  return(numerator/denominator)
+  }
+boottest <- function(x, y, nboot=200) {
+    combmean <- mean(c(x,y))
+    # The mean of the combined sample
+    teststatvec <- rep(NA, nboot)
+    adjx <- x - mean(x) + combmean
+    # The adjusted X’s will have mean=combmean
+    adjy <- y - mean(y) + combmean
+    # The adjusted X’s will have mean=combmean
+  for(b in 1:nboot)
+    teststatvec[b] <- teststat1(sample(adjx, replace=T),
+                  sample(adjy, replace=T))
+  return(list(bootpval = sum(teststat1(x,y) < teststatvec)/
+            nboot,  teststatvec = teststatvec))
+}
+```
+
+```{r}
+two_sample = acui[which(acui$str==1),]
+```
+
+Not using paralle computing
+
+```{r}
+set.seed(123)
+system.time({
+res1 = boottest(two_sample$blue, two_sample$red)
+})
+mean(res1$teststatvec)
+```
+
+The mean of t is 0.0022 which is smaller than 0.05, so we fail to reject null hypothesis and conclude that two treatment do not have different effect.
+
+Using paralle computing
+
+```{r}
+set.seed(123)
+library(parallel)
+nCores<-detectCores() # detect numbers of available cores 
+cl = makeCluster(nCores)
+system.time({
+res2 = boottest(two_sample$blue, two_sample$red)
+})
+stopCluster(cl)
+mean(res2$teststatvec)
+```
+
+We can find that when using paralle computing, we need less time. The mean of t is 0.0038 which is smaller than 0.05, so we fail to reject null hypothesis and conclude that two treatment do not have different effect.
+
+For paired comparison trial, let $d_i$ equals to the difference of visual acuity between two eyes. Then the null hypothesis: $$H_0:\bar{d}=0$$ 
+Corresponding t statistics: $$t=\frac{\bar{d}-0}{\frac{S}{\sqrt{n}}}$$
+
+```{r}
+teststat2 <- function(d) {
+  numerator = mean(d)
+  denominator = sqrt(var(d)/length(d))
+  return(numerator/denominator)
+  }
+boottest2 <- function(d, nboot=200) {
+  teststatvec <- rep(NA, nboot)
+  adjd <- d - mean(d)
+  for(b in 1:nboot)
+    teststatvec[b] <- teststat2(sample(adjd, replace=T))
+  return(list(bootpval = sum(teststat2(b) < teststatvec)/
+            nboot,  teststatvec = teststatvec))
+}
+```
+
+```{r}
+paired_sample = acui[which(acui$str==0),]
+d = paired_sample$red-paired_sample$blue
+```
+
+Not using paralle computing
+
+```{r}
+set.seed(123)
+system.time({
+res1 = boottest2(d)
+})
+mean(res1$teststatvec)
+```
+
+The mean of t is 0.016 which is larger than 0.005, so we reject null hypothesis and conclude that two treatment have different effect in according to paired comparison.
+
+Using paralle computing
+
+```{r}
+set.seed(123)
+library(parallel)
+nCores<-detectCores() # detect numbers of available cores 
+cl = makeCluster(nCores)
+system.time({
+res2 = boottest2(d)
+})
+stopCluster(cl)
+mean(res2$teststatvec)
+```
+
+We can find that when using paralle computing, we need less time. The mean of t is 0.016 which is larger than 0.05, so we reject null hypothesis and conclude that two treatment have different effect in according to paired comparison.
+
+\paragraph{Problem 2}
+Example 2 Number of modes of a density (See Lecture 7.pdf, page 4)
+
+$H_0:n_{mode}=1$ vs $H_1:n_{mode}\geq1$
+
+
+```{r }
+library(MASS)
+data(galaxies)
+galaxies
+plot(density(galaxies/1000, bw=1.5))
+plot(density(galaxies/1000, bw=3.5))
+#calculate the number of modes in the density
+  den <- density(galaxies/1000, bw=1.5)
+  den.s <- smooth.spline(den$x, den$y, all.knots=TRUE, spar=0.8)
+  s.1 <- predict(den.s, den.s$x, deriv=1)
+  nmodes <- length(rle(den.sign <- sign(s.1$y))$values)/2
+```
+
+```{r}
+gal <- galaxies/1000
+c(width.SJ(gal, method = "dpi"), width.SJ(gal))
+plot(x = c(0, 40), y = c(0, 0.3), type = "n", bty = "l",
+xlab = "velocity of galaxy (1000km/s)", ylab = "density")
+rug(gal)
+lines(density(gal, width = 3.25, n = 200), lty = 1)
+lines(density(gal, width = 2.56, n = 200), lty = 3)
+```
+
+
+
+
+
+\paragraph{Problem 3}
+Recall in the lecture of EM algorithm, we studied an ABO blood type data, where we have $N_{obs} = (N_{A},N_{B},N_{AB}, N_{O}) = (26, 27, 42, 7)$, and designed EM algorithm to estimate the allele frequencies, $P_A, P_B$ and $P_O$. 
+
+
+
+Please design a bootstrap algorithm to estimate the variances of the estimated $\hat{P}_A$, $\hat P_B$ and $\hat P_O$. Implement your algorithms in R, and present your results..
+
+# Answer: your answer starts here...
+
+First, we use EM algorithm to get estimators of $\hat{P_A},\hat{P_B},\hat{P_O}$.
+
+```{r }
+# E-step evaluating conditional means E(N_gene | N_obs , p)
+getEN <- function(N, p){
+  aa = N$a * p$a^2/(p$a^2 + 2*p$a*p$o)
+  ao = N$a * 2*p$a*p$o/(p$a^2 + 2*p$a*p$o)
+  bb = N$b * p$b^2/(p$b^2 + 2*p$b*p$o)
+  bo = N$b * 2*p$b*p$o/(p$b^2 + 2*p$b*p$o)
+  ab = N$ab
+  oo = N$oo
+  EN = list(aa=aa, ao=ao, bb=bb, bo=bo, ab=ab, oo=oo)
+  return(EN)
+}
+# M-step - updating the parameters
+getp <- function(EN) {
+  n <- EN$aa+EN$ao+EN$bb+EN$bo+EN$ab+EN$oo
+  a = (2*EN$aa+EN$ao+EN$ab)/(2*n)
+  b = (2*EN$bb+EN$bo+EN$ab)/(2*n)
+  o = (2*EN$oo+EN$ao+EN$bo)/(2*n)
+  p = list(a=a,b=b,o=o)
+  return(p)
+}
+EMmix <- function(N, startp, nreps=10) {
+  i <- 0
+  EN <- getEN(N,startp)
+  newp <- startp
+  #res <- c(0, t(as.matrix(newp)))
+  res <- c(i=0,newp)
+  while(i < nreps) {
+  # This should actually check for convergence
+    i <- i + 1
+    newp <- getp(EN)
+    EN <- getEN(N,newp)
+    #res <- rbind(res, c(i, t(as.matrix(newp))))
+    res <- rbind(res, c(i=i, newp))
+  }
+  return(res)
+}
+```
+
+```{r}
+N = list(a=26, b=27, ab=42, oo=7)
+p = list(a=0.3, b=0.3, o=0.4)
+res = EMmix(N,p,nreps = 20)
+res
+```
+
+Nex, we use bootstrap to estimate the variances of the estimated $\hat{P_A},\hat{P_B},\hat{P_O}$.
+
+```{r}
+standseboot <- function(a, b, nboot=200) {
+  for(i in 1:nboot){
+    mean_a = 
+  }
+    meandiffvec <- c(meandiffvec,
+        mean(sample(x,replace=T)) - mean(sample(y,replace=T)))
+  return(list(bootse=sqrt(var(meandiffvec)),
+         meandiffvec=meandiffvec))
+}
+x <- c(94, 197, 16, 38, 99, 141, 23)
+y <- c(52, 104, 146, 10, 51, 30, 40, 27, 46)
+res <- twosampboot(x, y)
+res$bootse
+
+```
+
